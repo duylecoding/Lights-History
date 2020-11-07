@@ -1,4 +1,4 @@
-"""BlinkyTape Python communication library.
+"""BlinkyTape Python communication library. (modified)
   This code assumes stock serialLoop() in the firmware.
   Commands are issued in 3-byte blocks, with pixel data
   encoded in RGB triplets in range 0-254, sent sequentially
@@ -27,23 +27,6 @@ else:
 
 class BlinkyTape(object):
     def __init__(self, port, ledCount=60, buffered=True):
-        """Creates a BlinkyTape object and opens the port.
-        Parameters:
-          port
-            Required, port name as accepted by PySerial library:
-            http://pyserial.sourceforge.net/pyserial_api.html#serial.Serial
-            It is the same port name that is used in Arduino IDE.
-            Ex.: COM5 (Windows), /dev/ttyACM0 (Linux).
-          ledCount
-            Optional, total number of LEDs to work with,
-            defaults to 60 LEDs. The limit is enforced and an
-            attempt to send more pixel data will throw an exception.
-          buffered
-            Optional, enabled by default. If enabled, will buffer
-            pixel data until a show command is issued. If disabled,
-            the data will be sent in byte triplets as expected by firmware,
-            with immediate flush of the serial buffers (slower).
-        """
         self.port = port
         self.ledCount = ledCount
         self.position = 0
@@ -75,10 +58,6 @@ class BlinkyTape(object):
         self.show()
 
     def sendPixel(self, r, g, b):
-        """Sends the next pixel data triplet in RGB format.
-        Values are clamped to 0-254 automatically.
-        Throws a RuntimeException if [ledCount] pixels are already set.
-        """
         data = ""
         data = chr(r) + chr(g) + chr(b)
         data = data.replace(chr(255), chr(254))
@@ -94,17 +73,10 @@ class BlinkyTape(object):
             raise RuntimeError("Attempting to set pixel outside range!")
 
     def show(self):
-        """Sends the command(s) to display all accumulated pixel data.
-        Resets the next pixel position to 0, flushes the serial buffer,
-        and discards any accumulated responses from BlinkyTape.
-        """
         control = chr(255)
         if self.buffered:
-            # Fix an OS X specific bug where sending more than 383 bytes of data at once
-            # hangs the BlinkyTape controller. Why this is???
-            # TODO: Test me on other platforms
-            CHUNK_SIZE = 300
 
+            CHUNK_SIZE = 300
             self.buf += control
             for i in range(0, len(self.buf), CHUNK_SIZE):
                 self.serial.write(encode(self.buf[i:i+CHUNK_SIZE]))
@@ -164,21 +136,18 @@ if __name__ == "__main__":
     import requests
 
     host = "https://na1.api.riotgames.com"
-    key = "RGAPI-4e2016ed-9cf1-404c-9d43-92607af6d491"
+    f = open("apikey.txt", "r")
+    key = f.read()
 
     accountInfo = requests.get(host + "/lol/summoner/v4/summoners/by-name/Sexiest?api_key="+key).json()
-    myprint(accountInfo)
     accountId = accountInfo['accountId']
     last10Matches = requests.get(host + "/lol/match/v4/matchlists/by-account/" + accountId + "?queue=420&endIndex=10&beginIndex=0&api_key="+key).json()
-    #https://na1.api.riotgames.com/lol/match/v4/timelines/by-match/3650425155?api_key=RGAPI-4e2016ed-9cf1-404c-9d43-92607af6d491
     matches = last10Matches['matches']
     matchIds = list(map(lambda x: x['gameId'], matches))
     winLoss = []
 
-    #3651483111, 3651414773
     for x in range(0, len(matchIds)):
         match = requests.get(host + "/lol/match/v4/matches/" + str(matchIds[x]) + "?api_key=" + key).json()
-        #match = requests.get(host + "/lol/match/v4/matches/" + "3651483111" + "?api_key=" + key).json()
         participantIdentities = match['participantIdentities']
         sexiest = next((x for x in participantIdentities if x['player']['summonerName'] == 'Sexiest'), [])
         participantId = sexiest['participantId']

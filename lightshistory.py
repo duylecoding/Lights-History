@@ -149,19 +149,48 @@ class BlinkyTape(object):
             self.sendPixel(224, 88, 186) #pink
         self.sendPixel(255, 255, 255)
 
-    def show_match_history(self):
-      for i in range(0, 10):
-        if(random.randint(0,1) == 0):
+    def show_match_history(self, winLoss):
+      for i in range(0, len(winLoss)):
+        if(winLoss[i] == True):
             self.show_win()
         else:
             self.show_loss()
       self.show()
+
+def myprint(msg):
+    print("\x1b[33;21m{}\x1b[0m".format(msg))
   
 if __name__ == "__main__":
-    host = "na1.api.riotgames.com"
+    import requests
+
+    host = "https://na1.api.riotgames.com"
+    key = "RGAPI-4e2016ed-9cf1-404c-9d43-92607af6d491"
+
+    accountInfo = requests.get(host + "/lol/summoner/v4/summoners/by-name/Sexiest?api_key="+key).json()
+    myprint(accountInfo)
+    accountId = accountInfo['accountId']
+    last10Matches = requests.get(host + "/lol/match/v4/matchlists/by-account/" + accountId + "?queue=420&endIndex=10&beginIndex=0&api_key="+key).json()
+    #https://na1.api.riotgames.com/lol/match/v4/timelines/by-match/3650425155?api_key=RGAPI-4e2016ed-9cf1-404c-9d43-92607af6d491
+    matches = last10Matches['matches']
+    matchIds = list(map(lambda x: x['gameId'], matches))
+    winLoss = []
+
+    #3651483111, 3651414773
+    for x in range(0, len(matchIds)):
+        match = requests.get(host + "/lol/match/v4/matches/" + str(matchIds[x]) + "?api_key=" + key).json()
+        #match = requests.get(host + "/lol/match/v4/matches/" + "3651483111" + "?api_key=" + key).json()
+        participantIdentities = match['participantIdentities']
+        sexiest = next((x for x in participantIdentities if x['player']['summonerName'] == 'Sexiest'), [])
+        participantId = sexiest['participantId']
+        participants = match['participants']
+        teamId = next((x for x in participants if x['participantId'] == participantId), [])['teamId']
+        teams = match['teams']
+        sexiestTeam = next((x for x in teams if x['teamId'] == teamId), [])
+        win = sexiestTeam['win'] == 'Win'
+        winLoss.append(win)
 
     bt = BlinkyTape(serial.tools.list_ports.comports()[0].device)
-    bt.show_match_history()
+    bt.show_match_history(winLoss)
     bt.close()
 
     

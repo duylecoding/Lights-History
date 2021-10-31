@@ -136,27 +136,26 @@ if __name__ == "__main__":
     import requests
 
     host = "https://na1.api.riotgames.com"
+    host2 = "https://americas.api.riotgames.com"
     f = open("apikey.txt", "r")
     key = f.read()
 
     accountInfo = requests.get(host + "/lol/summoner/v4/summoners/by-name/Sexiest?api_key="+key).json()
-    accountId = accountInfo['accountId']
-    last10Matches = requests.get(host + "/lol/match/v4/matchlists/by-account/" + accountId + "?queue=420&endIndex=10&beginIndex=0&api_key="+key).json()
-    matches = last10Matches['matches']
-    matchIds = list(map(lambda x: x['gameId'], matches))
+    puuid = accountInfo['puuid']
+    last10Matches = requests.get(host2 + "/lol/match/v5/matches/by-puuid/" + puuid + "/ids?start=0&count=10&api_key="+key).json()
     winLoss = []
 
-    for x in range(0, len(matchIds)):
-        match = requests.get(host + "/lol/match/v4/matches/" + str(matchIds[x]) + "?api_key=" + key).json()
-        participantIdentities = match['participantIdentities']
-        sexiest = next((x for x in participantIdentities if x['player']['summonerName'] == 'Sexiest'), [])
+    for x in range(0, len(last10Matches)):
+        match = requests.get(host2 + "/lol/match/v5/matches/" + str(last10Matches[x]) + "?api_key=" + key).json()
+        participants = match['info']['participants']
+        sexiest = next((x for x in participants if x['summonerName'] == 'Sexiest'), [])
         participantId = sexiest['participantId']
-        participants = match['participants']
-        teamId = next((x for x in participants if x['participantId'] == participantId), [])['teamId']
-        teams = match['teams']
+        teamId = sexiest['teamId']
+        teams = match['info']['teams']
         sexiestTeam = next((x for x in teams if x['teamId'] == teamId), [])
-        win = sexiestTeam['win'] == 'Win'
-        winLoss.append(win)
+        winLoss.append(sexiestTeam['win'])
+
+    print(winLoss)
 
     bt = BlinkyTape(serial.tools.list_ports.comports()[0].device)
     bt.show_match_history(winLoss)
